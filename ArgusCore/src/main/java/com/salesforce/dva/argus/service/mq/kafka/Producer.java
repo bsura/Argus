@@ -33,6 +33,8 @@ package com.salesforce.dva.argus.service.mq.kafka;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.salesforce.dva.argus.entity.Metric;
+import com.salesforce.dva.argus.protobuf.entity.MetricOuterClass;
 import com.salesforce.dva.argus.service.mq.kafka.KafkaMessageService.Property;
 import com.salesforce.dva.argus.system.SystemConfiguration;
 import com.salesforce.dva.argus.system.SystemException;
@@ -144,7 +146,12 @@ public class Producer {
                 value = String.class.cast(object);
             } else {
                 try {
-                    value = _mapper.writeValueAsString(object);
+                	long start = System.nanoTime();
+                	MetricOuterClass.Metrics protoBufMetrics = MetricOuterClass.Metrics.class.cast(object);
+                	byte[] arr = protoBufMetrics.toByteArray();
+                    _logger.info("Time to serialize in nano secs = " + (System.nanoTime() - start));
+                    _logger.info("Payload Size in bytes = " + arr.length);
+                    value = _mapper.writeValueAsString(new Metric("scope", "metric"));
                 } catch (JsonProcessingException e) {
                     _logger.warn("Exception while serializing the object to a string. Skipping this object.", e);
                     continue;

@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package com.salesforce.dva.argus.protobuf.entity;
+
+message Metric {
+
+	string scope = 1;
+	string metric = 2;
+	map<int64, double> datapoints = 3;
+	map<string, string> tags = 4;
+	string namespace = 5;
+	string display_name = 6;
+	string units = 7;
+
+}
+
+message Metrics {
+
+	repeated Metric metric = 1;
+
+}

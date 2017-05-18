@@ -39,6 +39,7 @@ import com.salesforce.dva.argus.entity.Annotation;
 import com.salesforce.dva.argus.entity.Metric;
 import com.salesforce.dva.argus.entity.PrincipalUser;
 import com.salesforce.dva.argus.inject.SLF4JTypeListener.InjectLogger;
+import com.salesforce.dva.argus.protobuf.entity.MetricOuterClass;
 import com.salesforce.dva.argus.service.AuditService;
 import com.salesforce.dva.argus.service.CollectionService;
 import com.salesforce.dva.argus.service.MQService;
@@ -151,7 +152,7 @@ public class DefaultCollectionService extends DefaultJPAService implements Colle
                 metricData.getDataPointsSize(), metricData.getMinResolutionDataPointsAcrossAllMetrics());
         }
 
-        List<ArrayList<Metric>> batches = _batchMetrics(metrics);
+        List<MetricOuterClass.Metrics> batches = _batchMetrics(metrics);
 
         _mqService.enqueue(METRIC.getQueueName(), batches);
     }
@@ -297,25 +298,48 @@ public class DefaultCollectionService extends DefaultJPAService implements Colle
         return allowedMetrics;
     }
 
-    private List<ArrayList<Metric>> _batchMetrics(List<Metric> metrics) {
-        List<ArrayList<Metric>> batches = new ArrayList<ArrayList<Metric>>();
+    private List<MetricOuterClass.Metrics> _batchMetrics(List<Metric> metrics) {
+        List<MetricOuterClass.Metrics> batches = new ArrayList<>();
         int count = 0;
-        ArrayList<Metric> batch = new ArrayList<Metric>(BATCH_METRICS);
+        ArrayList<MetricOuterClass.Metric> batch = new ArrayList<>(BATCH_METRICS);
 
         for (Metric metric : metrics) {
             if (count == BATCH_METRICS) {
                 count = 0;
-                batches.add(batch);
-                batch = new ArrayList<Metric>(BATCH_METRICS);
+                batches.add(MetricOuterClass.Metrics.newBuilder().addAllMetric(batch).build());
+                batch = new ArrayList<MetricOuterClass.Metric>(BATCH_METRICS);
             }
-            batch.add(metric);
+            batch.add(_convertToProtoBufMetric(metric));
             count++;
         }
-        batches.add(batch);
+        batches.add(MetricOuterClass.Metrics.newBuilder().addAllMetric(batch).build());
         return batches;
     }
 
-    //~ Inner Classes ********************************************************************************************************************************
+    private MetricOuterClass.Metric _convertToProtoBufMetric(Metric metric) {
+		
+    	MetricOuterClass.Metric.Builder builder = MetricOuterClass.Metric.newBuilder()
+    																	.setScope(metric.getScope())
+    																	.setMetric(metric.getMetric())
+    																	.putAllTags(metric.getTags())
+    																	.putAllDatapoints(metric.getDatapoints());
+    	
+    	if(metric.getNamespace() != null) {
+    		builder.setNamespace(metric.getNamespace());
+    	}
+    	
+    	if(metric.getDisplayName() != null) {
+    		builder.setDisplayName(metric.getDisplayName());
+    	}
+    	
+    	if(metric.getUnits() != null) {
+    		builder.setUnits(metric.getUnits());
+    	}
+    	
+		return builder.build();
+	}
+
+	//~ Inner Classes ********************************************************************************************************************************
 
     /**
      * Data structure for holding the data points and minimum resolution of data points across all metrics.
