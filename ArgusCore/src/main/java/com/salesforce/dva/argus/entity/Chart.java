@@ -60,9 +60,6 @@ public class Chart extends JPAEntity implements Serializable {
 	@Basic(optional = true)
 	@Column(nullable = true)
 	private String title;
-
-    @Column(nullable = true)
-    private String description;
 	
 	@Enumerated(EnumType.STRING)
 	private ChartType type;
@@ -160,27 +157,7 @@ public class Chart extends JPAEntity implements Serializable {
 		this.type = type;
 	}
 
-    /**
-     * Returns the description of the Chart. It can be null.
-     *
-     * @return chart description
-     */
-
-    public String getDescription() {
-        return description;
-    }
-
-    /**
-     * Sets the description of the chart.
-     *
-     * @param description The chart description
-     */
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public List<ChartQuery> getQueries() {
+	public List<ChartQuery> getQueries() {
 		return Collections.unmodifiableList(queries);
 	}
 
@@ -214,7 +191,7 @@ public class Chart extends JPAEntity implements Serializable {
 	
 	@Override
     public String toString() {
-        return "Chart{" + "title=" + title + ", description=" + description + ", owner=" + owner + ", type=" + type + ", queries=" + queries +
+        return "Chart{" + "title=" + title + ", owner=" + owner + ", type=" + type + ", queries=" + queries + 
         		", entity=" + entity + "}";
     }
 	

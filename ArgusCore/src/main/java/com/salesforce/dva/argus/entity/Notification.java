@@ -49,15 +49,11 @@ import javax.persistence.Basic;
 import javax.persistence.Column;
 import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
-import javax.persistence.EntityManager;
-import javax.persistence.FetchType;
 import javax.persistence.JoinColumn;
 import javax.persistence.JoinTable;
 import javax.persistence.Lob;
 import javax.persistence.ManyToMany;
 import javax.persistence.ManyToOne;
-import javax.persistence.NoResultException;
-import javax.persistence.Query;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
@@ -120,10 +116,8 @@ public class Notification extends JPAEntity implements Serializable {
 			}
 			jgen.writeEndArray();
 			
-			// Getting these values requires a lot of queries to rdbms at runtime, and so these are excluded for now 
-			// as the current usecases do not need these values to be serialized
-			//jgen.writeObjectField("cooldownExpirationByTriggerAndMetric", notification.getCooldownExpirationMap());
-			//jgen.writeObjectField("activeStatusByTriggerAndMetric", notification.getActiveStatusMap());
+			jgen.writeObjectField("cooldownExpirationByTriggerAndMetric", notification.getCooldownExpirationMap());
+			jgen.writeObjectField("activeStatusByTriggerAndMetric", notification.getActiveStatusMap());
 			
 			jgen.writeEndObject();
 			
@@ -192,8 +186,7 @@ public class Notification extends JPAEntity implements Serializable {
 			}
 			notification.setTriggers(triggers);
 			
-			// Commenting this part out as these fields are not currently serialized
-			/*Map<String, Boolean> activeStatusByTriggerAndMetric = new HashMap<>();
+			Map<String, Boolean> activeStatusByTriggerAndMetric = new HashMap<>();
 			JsonNode activeStatusByTriggerAndMetricNode = rootNode.get("activeStatusByTriggerAndMetric");
 			if(activeStatusByTriggerAndMetricNode.isObject()) {
 				Iterator<Entry<String, JsonNode>> fieldsIter = activeStatusByTriggerAndMetricNode.fields();
@@ -213,7 +206,7 @@ public class Notification extends JPAEntity implements Serializable {
 					cooldownExpirationByTriggerAndMetric.put(field.getKey(), field.getValue().asLong());
 				}
 			}
-			notification.cooldownExpirationByTriggerAndMetric = cooldownExpirationByTriggerAndMetric;*/
+			notification.cooldownExpirationByTriggerAndMetric = cooldownExpirationByTriggerAndMetric;
 			
 			return notification;
 		}
@@ -237,7 +230,7 @@ public class Notification extends JPAEntity implements Serializable {
 	
     long cooldownPeriod;
     
-	@ManyToOne(optional = false, fetch=FetchType.LAZY)
+	@ManyToOne(optional = false)
     @JoinColumn(name = "alert_id")
     private Alert alert;
     
@@ -283,59 +276,6 @@ public class Notification extends JPAEntity implements Serializable {
     /** Creates a new Notification object. */
     protected Notification() {
         super(null);
-    }
-    
-    //~ Static Methods *******************************************************************************************************************************
-    
-    @SuppressWarnings("unchecked")
-	public static void updateActiveStatusAndCooldown(EntityManager em, List<Notification> notifications) {
-    	requireArgument(em != null, "Entity manager can not be null.");
-    	
-    	if(notifications.isEmpty()) return;
-    	
-    	Map<BigInteger, Notification> notificationsByIds = new HashMap<>(notifications.size());
-    	
-    	StringBuilder sb = new StringBuilder();
-    	for(Notification n : notifications) {
-    		notificationsByIds.put(n.getId(), n);
-    		n.activeStatusByTriggerAndMetric.clear();
-    		n.cooldownExpirationByTriggerAndMetric.clear();
-    		sb.append(n.getId()).append(","); 
-    	}
-
-    	String ids = sb.substring(0, sb.length()-1);
-    	try {
-    		Query q = em.createNativeQuery("select * from notification_cooldownexpirationbytriggerandmetric where notification_id IN (" + ids + ")");
-        	List<Object[]> objects = q.getResultList();
-        	
-        	for(Object[] object : objects) {
-        		BigInteger notificationId = new BigInteger(String.valueOf(Long.class.cast(object[0])));
-        		Long cooldownExpiration = Long.class.cast(object[1]);
-        		String key = String.class.cast(object[2]);
-        		notificationsByIds.get(notificationId).cooldownExpirationByTriggerAndMetric.put(key, cooldownExpiration);
-        	}
-        	
-        	q = em.createNativeQuery("select * from notification_activestatusbytriggerandmetric where notification_id IN (" + ids + ")");
-        	objects = q.getResultList();
-        	
-        	for(Object[] object : objects) {
-        		BigInteger notificationId = new BigInteger(String.valueOf(Long.class.cast(object[0])));
-        		Boolean isActive;
-        		try {
-        			isActive = Boolean.class.cast(object[1]);
-        		} catch (ClassCastException e) {
-        			// This is because Embedded Derby stores booleans as 0, 1.
-        			isActive = Integer.class.cast(object[1]) == 0 ? Boolean.FALSE : Boolean.TRUE;
-        		}
-        		
-        		String key = String.class.cast(object[2]);
-        		notificationsByIds.get(notificationId).activeStatusByTriggerAndMetric.put(key, isActive);
-        	}
-        	
-    	} catch(NoResultException ex) {
-    		return;
-    	}
-    	
     }
 
     //~ Methods **************************************************************************************************************************************
@@ -668,14 +608,10 @@ public class Notification extends JPAEntity implements Serializable {
 
 
 	private String _hashTriggerAndMetric(Trigger trigger, Metric metric) {
-		requireArgument(trigger != null, "Trigger cannot be null.");
-		requireArgument(metric != null, "Metric cannot be null");
+        requireArgument(trigger != null, "Trigger cannot be null.");
+        requireArgument(metric != null, "Metric cannot be null");
 
-		if(trigger.getId()!=null) {
-			return trigger.getId().toString() + "$$" + metric.getIdentifier().hashCode();
-		}else {
-			return "0$$" + metric.getIdentifier().hashCode();
-		}
+        return trigger.getId().toString() + "$$" + metric.getIdentifier().hashCode();
 	}
 
 }

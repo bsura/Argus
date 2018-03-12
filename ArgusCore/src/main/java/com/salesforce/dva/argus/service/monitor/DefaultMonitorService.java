@@ -349,8 +349,7 @@ public class DefaultMonitorService extends DefaultJPAService implements MonitorS
     }
 
     private boolean _isMonitoringServiceEnabled() {
-        //return _serviceManagementService.isServiceEnabled(Service.MONITORING);
-    	return true;
+        return _serviceManagementService.isServiceEnabled(Service.MONITORING);
     }
 
     private void _resetCountersForScope(String scope) {
