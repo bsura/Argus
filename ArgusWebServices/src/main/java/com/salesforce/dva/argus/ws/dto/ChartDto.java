@@ -28,7 +28,6 @@ public class ChartDto extends EntityDTO {
 	@JsonIgnore
 	private String _href;
 	private String title;
-	private String description;
 	private ChartType type;
 	private List<ChartQuery> queries;
 	private BigInteger entityId;
@@ -82,15 +81,7 @@ public class ChartDto extends EntityDTO {
 		this.title = title;
 	}
 
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public ChartType getType() {
+	public ChartType getType() {
 		return type;
 	}
 

@@ -90,7 +90,8 @@ public class AuthResources extends AbstractResource {
     @Description("Terminates a user session. Not needed for existing auth api. This is just a placeholder method.")
     @Path("/logout")
     public Response logout(@Context UriInfo uriInfo) {
-    	 return Response.ok("You have logged out.").build();
+    	Response response = Response.temporaryRedirect(UriBuilder.fromUri(uriInfo.getBaseUri() + "v2/auth/logout").build()).build();
+    	return response;
     }
 }
 /* Copyright (c) 2016, Salesforce.com, Inc.  All rights reserved. */

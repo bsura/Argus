@@ -36,7 +36,6 @@ import com.salesforce.dva.argus.AbstractTest;
 import com.salesforce.dva.argus.IntegrationTest;
 import com.salesforce.dva.argus.entity.Annotation;
 import com.salesforce.dva.argus.entity.Metric;
-import com.salesforce.dva.argus.service.metric.transform.TransformFactory;
 import com.salesforce.dva.argus.service.tsdb.AnnotationQuery;
 import com.salesforce.dva.argus.service.tsdb.DefaultTSDBService;
 import com.salesforce.dva.argus.service.tsdb.MetricQuery;
@@ -359,7 +358,7 @@ public class TSDBServiceIT extends AbstractTest {
     @SuppressWarnings("unchecked")
     @Test
     public void testFractureMetrics() {
-        TSDBService service = system.getServiceFactory().getTSDBService();
+        TSDBService service = new DefaultTSDBService(system.getConfiguration(), system.getServiceFactory().getMonitorService());
         Metric metric = new Metric("testscope", "testMetric");
         Map<Long, Double> datapoints = new HashMap<>();
 

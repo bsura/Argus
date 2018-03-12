@@ -160,8 +160,6 @@ public class FillCalculateTransform implements Transform {
                 newConstants.add(constants.get(1));
                 newConstants.add(constants.get(2));
                 newConstants.add(String.valueOf(calculateResult));
-                newConstants.add(String.valueOf(System.currentTimeMillis()));
-                newConstants.add("false");
 
                 List<Metric> singleMetric = new ArrayList<>();
 

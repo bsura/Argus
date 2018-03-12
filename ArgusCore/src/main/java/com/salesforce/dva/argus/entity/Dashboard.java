@@ -101,11 +101,7 @@ import org.apache.commons.lang3.reflect.FieldUtils;
             name = "Dashboard.getSharedDashboards", query = "SELECT d FROM Dashboard d WHERE d.shared = true"
         ), @NamedQuery(
             name = "Dashboard.getDashboardsOwnedBy", query = "SELECT d FROM Dashboard d WHERE d.owner = :owner"
-        ), @NamedQuery(name = "Dashboard.getDashboards", query = "SELECT d FROM Dashboard d ORDER BY d.owner.userName,d.name ASC"),
-		@NamedQuery(
-				name = "Dashboard.getSharedDashboardsByOwner", 
-				query = "SELECT d FROM Dashboard d WHERE d.owner = :owner AND d.shared = true"
-				)
+        ), @NamedQuery(name = "Dashboard.getDashboards", query = "SELECT d FROM Dashboard d ORDER BY d.owner.userName,d.name ASC")
     }
 )
 public class Dashboard extends JPAEntity implements Serializable {
@@ -124,7 +120,7 @@ public class Dashboard extends JPAEntity implements Serializable {
     
     @Lob
     private String content;
-
+    
     @Metadata
     private String description;
     
@@ -135,9 +131,6 @@ public class Dashboard extends JPAEntity implements Serializable {
     @Column(nullable = true)
     @Enumerated(EnumType.STRING)
     private LayoutType layout = LayoutType.SMALL;
-
-    @Metadata
-    private String version;
     
     @ElementCollection
     @Embedded
@@ -151,7 +144,7 @@ public class Dashboard extends JPAEntity implements Serializable {
      *
      * @param  creator        The creator of this dashboard.
      * @param  dashboardName  The name for the dashboard. Cannot be null or empty.
-     * @param  owner          The owner of this dashboard. This need not be the same as the creator. Cannot be null.
+     * @param  owner          The owner of this dashboard. This need not be the same as the creator. Cannoy be null.
      */
     public Dashboard(PrincipalUser creator, String dashboardName, PrincipalUser owner) {
         super(creator);
@@ -190,47 +183,23 @@ public class Dashboard extends JPAEntity implements Serializable {
     /**
      * Finds the list of dashboards that are marked as globally shared.
      *
-     * @param   em       The entity manager to use.
-     * @param   owner    The owner of shared dashboards to filter on 
-     * @param   limit    The maximum number of rows to return.
+     * @param   em  The entity manager to use.
      *
      * @return  Dashboards that are shared/global within the system. Or empty list if no such dashboards exist.
      */
-    public static List<Dashboard> findSharedDashboards(EntityManager em,  PrincipalUser owner, Integer limit) {
+    public static List<Dashboard> findSharedDashboards(EntityManager em) {
     	requireArgument(em != null, "Entity manager can not be null.");
     	
-    	
-		TypedQuery<Dashboard> query;
-		if(owner == null){
-			query = em.createNamedQuery("Dashboard.getSharedDashboards", Dashboard.class);
-		} else {
-			query = em.createNamedQuery("Dashboard.getSharedDashboardsByOwner", Dashboard.class);
-			query.setParameter("owner", owner);
-		}
-		
-		query.setHint("javax.persistence.cache.storeMode", "REFRESH");
-		
-		if(limit!= null){
-			query.setMaxResults(limit);
-		}
-		
+    	TypedQuery<Dashboard> query = em.createNamedQuery("Dashboard.getSharedDashboards", Dashboard.class);
+
         try {
             return query.getResultList();
         } catch (NoResultException ex) {
             return new ArrayList<>(0);
         }
     }
- 
-    /**
-     * Gets all meta information of shared dashboards with filtering.
-     *
-     * @param   em       The entity manager to use.
-     * @param   owner    The owner of shared dashboards to filter on 
-     * @param   limit    The maximum number of rows to return.
-     *
-     * @return  The list of all shared dashboards with meta information only. Will never be null but may be empty.
-     */    
-    public static List<Dashboard> findSharedDashboardsMeta(EntityManager em, PrincipalUser owner, Integer limit) {
+    
+    public static List<Dashboard> findSharedDashboardsMeta(EntityManager em) {
     	requireArgument(em != null, "Entity manager can not be null.");
     	
     	try {
@@ -243,14 +212,9 @@ public class Dashboard extends JPAEntity implements Serializable {
         		fieldsToSelect.add(e.get(field.getName()).alias(field.getName()));
         	}
         	cq.multiselect(fieldsToSelect);
-
-			if(owner != null){
-				cq.where(cb.equal(e.get("shared"), true), cb.equal(e.get("owner"), owner));
-			} else{
-	        	cq.where(cb.equal(e.get("shared"), true));
-			}
-
-        	return _readDashboards(em, cq, limit);
+        	cq.where(cb.equal(e.get("shared"), true));
+        	
+        	return _readDashboards(em, cq, null);
         	
         } catch (NoResultException ex) {
             return new ArrayList<>(0);
@@ -349,12 +313,10 @@ public class Dashboard extends JPAEntity implements Serializable {
 		List<Dashboard> dashboards = new ArrayList<>();
 		
 		TypedQuery<Tuple> query = em.createQuery(cq);
-		query.setHint("javax.persistence.cache.storeMode", "REFRESH");
-		
 		if (limit != null) {
             query.setMaxResults(limit);
         }
-
+		
 		List<Tuple> result = query.getResultList();
 		for(Tuple tuple : result) {
 			Dashboard d = new Dashboard(PrincipalUser.class.cast(tuple.get("createdBy")), 
@@ -488,26 +450,7 @@ public class Dashboard extends JPAEntity implements Serializable {
 		this.layout = layout;
 	}
 
-    /**
-     * Returns the version of the dashboard.
-     *
-     * @return The dashboard version
-     */
-    public String getVersion() {
-        return version;
-    }
-
-    /**
-     * Sets the Dashboard Version
-     *
-     * @param version The dashbaord version
-     */
-
-    public void setVersion(String version) {
-        this.version = version;
-    }
-
-    /**
+	/**
 	 * Returns the template variables used in this dashboard.
 	 * 
 	 * @return  The template variables.
@@ -559,7 +502,7 @@ public class Dashboard extends JPAEntity implements Serializable {
 
     @Override
     public String toString() {
-        return "Dashboard{" + "name=" + name + ", owner=" + owner + ", content=" + content + ", description=" + description + ", shared=" + shared + ", version=" +version+
+        return "Dashboard{" + "name=" + name + ", owner=" + owner + ", content=" + content + ", description=" + description + ", shared=" + shared +
             '}';
     }
     

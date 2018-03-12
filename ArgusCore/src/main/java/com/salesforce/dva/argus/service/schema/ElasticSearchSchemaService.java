@@ -14,7 +14,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Map.Entry;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
@@ -174,13 +173,6 @@ public class ElasticSearchSchemaService extends AbstractSchemaService {
 		
 		List<MetricSchemaRecord> records = new ArrayList<>();
 		for(Metric metric : metrics) {
-			if(metric.getTags().isEmpty()) {
-				MetricSchemaRecord msr = new MetricSchemaRecord(metric.getScope(), metric.getMetric());
-				msr.setNamespace(metric.getNamespace());
-				records.add(msr);
-				continue;
-			}
-			
 			for(Map.Entry<String, String> entry : metric.getTags().entrySet()) {
 				records.add(new MetricSchemaRecord(metric.getNamespace(), metric.getScope(), metric.getMetric(), 
 													entry.getKey(), entry.getValue()));
@@ -189,9 +181,9 @@ public class ElasticSearchSchemaService extends AbstractSchemaService {
 		
 		if(!records.isEmpty()) {
 			if(_syncPut) {
-				_upsert(records, metrics);
+				_upsert(records);
 			} else {
-				_upsertAsync(records, metrics);
+				_upsertAsync(records);
 			}
 		}
 		_monitorService.modifyCounter(MonitorService.Counter.SCHEMARECORDS_WRITTEN, records.size(), null);
@@ -473,7 +465,7 @@ public class ElasticSearchSchemaService extends AbstractSchemaService {
 	}
 
 
-	private void _upsert(List<MetricSchemaRecord> records, List<Metric> metrics) {
+	private void _upsert(List<MetricSchemaRecord> records) {
 		
 		String requestUrl = new StringBuilder().append("/")
 											   .append(INDEX_NAME)
@@ -489,33 +481,31 @@ public class ElasticSearchSchemaService extends AbstractSchemaService {
 			
 			Response response = _esRestClient.performRequest(HttpMethod.POST.getName(), requestUrl, Collections.emptyMap(), new StringEntity(requestBody));
 			strResponse = extractResponse(response);
+		} catch (JsonProcessingException | UnsupportedEncodingException e) {
+			throw new SystemException("Failed to parse metrics when indexing.", e);
 		} catch (IOException e) {
-			_removeFromTrie(metrics);
 			throw new SystemException(e);
 		}
 		
 		try {
 			PutResponse putResponse = new ObjectMapper().readValue(strResponse, PutResponse.class);
 			if(putResponse.errors) {
-				_removeFromTrie(metrics);
 				for(Item item : putResponse.items) {
 					if(item.create != null && item.create.status != HttpStatus.SC_CONFLICT && item.create.status != HttpStatus.SC_CREATED) {
-						_logger.warn("Failed to index metric. Reason: " + new ObjectMapper().writeValueAsString(item.create.errorMap));
+						throw new SystemException("Failed to index metric. Reason: " + new ObjectMapper().writeValueAsString(item.create.errorMap));
 					}
 					
 					if(item.index != null && item.index.status == HttpStatus.SC_NOT_FOUND) {
-						_logger.warn("Index does not exist. Error: " + new ObjectMapper().writeValueAsString(item.index.errorMap));
+						throw new SystemException("Index does not exist. Error: " + new ObjectMapper().writeValueAsString(item.index.errorMap));
 					}
 				}
-				throw new SystemException("Error occured when indexing metrics.");
 			}
 		} catch(IOException e) {
-			_removeFromTrie(metrics);
 			throw new SystemException("Failed to parse reponse of put metrics.", e);
 		}
 	}
 	
-	private void _upsertAsync(List<MetricSchemaRecord> records, List<Metric> metrics) {
+	private void _upsertAsync(List<MetricSchemaRecord> records) {
 		
 		String requestUrl = new StringBuilder().append("/")
 											   .append(INDEX_NAME)
@@ -534,48 +524,30 @@ public class ElasticSearchSchemaService extends AbstractSchemaService {
 					try {
 						PutResponse putResponse = new ObjectMapper().readValue(extractResponse(response), PutResponse.class);
 						if(putResponse.errors) {
-							_removeFromTrie(metrics);
 							for(Item item : putResponse.items) {
 								if(item.create != null && item.create.status != HttpStatus.SC_CONFLICT && item.create.status != HttpStatus.SC_CREATED) {
-									_logger.warn("Failed to index metric. Reason: " + new ObjectMapper().writeValueAsString(item.create.errorMap));
+									throw new SystemException("Failed to index metric. Reason: " + new ObjectMapper().writeValueAsString(item.create.errorMap));
 								}
 								
 								if(item.index != null && item.index.status == HttpStatus.SC_NOT_FOUND) {
-									_logger.warn("Index does not exist. Error: " + new ObjectMapper().writeValueAsString(item.index.errorMap));
+									throw new SystemException("Index does not exist. Error: " + new ObjectMapper().writeValueAsString(item.index.errorMap));
 								}
 							}
 						}
 					} catch(IOException e) {
-						_removeFromTrie(metrics);
-						_logger.warn("Failed to parse reponse of put metrics.", e);
+						throw new SystemException("Failed to parse reponse of put metrics.", e);
 					}
 				}
 				
 				@Override
-				public void onFailure(Exception e) {
-					_removeFromTrie(metrics);
-					_logger.warn("Failed while executing request", e);
+				public void onFailure(Exception exception) {
+					_logger.warn("Failed while executing request", exception);
 				}
 			};
 			
 			_esRestClient.performRequestAsync(HttpMethod.POST.getName(), requestUrl, Collections.emptyMap(), new StringEntity(requestBody), responseListener);
 		} catch (JsonProcessingException | UnsupportedEncodingException e) {
 			throw new SystemException("Failed to parse metrics when indexing.", e);
-		}
-	}
-	
-	private void _removeFromTrie(List<Metric> metrics) {
-		for(Metric metric : metrics) {
-			if(metric.getTags().isEmpty()) {
-				String key = constructTrieKey(metric, null);
-				_trie.remove(key);
-				continue;
-			} 
-				
-			for(Entry<String, String> tagEntry : metric.getTags().entrySet()) {
-				String key = constructTrieKey(metric, tagEntry);
-				_trie.remove(key);
-			}
 		}
 	}
 	

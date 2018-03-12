@@ -121,6 +121,7 @@ public class DefaultDiscoveryService extends DefaultService implements Discovery
         requireNotDisposed();
         SystemAssert.requireArgument(query != null, "Metric query cannot be null.");
 
+        int limit = 500;
         List<MetricQuery> expandedQueryList = null;
         
         long start = System.nanoTime();
@@ -128,9 +129,7 @@ public class DefaultDiscoveryService extends DefaultService implements Discovery
         if (DiscoveryService.isWildcardQuery(query)) {
             _logger.info(MessageFormat.format("MetricQuery'{'{0}'}' contains wildcards. Will match against schema records.", query));
             
-            int limit = 10000;
             int noOfTimeseriesAllowed = DiscoveryService.maxTimeseriesAllowed(query);
-            
             if(noOfTimeseriesAllowed == 0) {
             	throw new WildcardExpansionLimitExceededException(EXCEPTION_MESSAGE);
             }
@@ -146,7 +145,7 @@ public class DefaultDiscoveryService extends DefaultService implements Discovery
 																						            			  .limit(limit)
 																						            			  .page(1)
 																						            			  .build();
-            	
+
                 while (true) {
                 	List<MetricSchemaRecord> records = _schemaService.get(schemaQuery);
                     for (MetricSchemaRecord record : records) {
@@ -169,6 +168,7 @@ public class DefaultDiscoveryService extends DefaultService implements Discovery
                         break;
                     }
                     
+                    //scanStartRow = records.get(records.size() - 1);
                     schemaQuery.setScanFrom(records.get(records.size() - 1));
                     schemaQuery.setPage(schemaQuery.getPage()+1);
                 }
@@ -195,7 +195,6 @@ public class DefaultDiscoveryService extends DefaultService implements Discovery
 
                     while (true) {
                         List<MetricSchemaRecord> records;
-                        
                         
                         if(!containsWildcard) {
                     		records = Arrays.asList(new MetricSchemaRecord(query.getNamespace(), query.getScope(), query.getMetric(), 
@@ -241,6 +240,7 @@ public class DefaultDiscoveryService extends DefaultService implements Discovery
                             break;
                         }
                         
+                        //scanStartRow = records.get(records.size() - 1);
                         schemaQuery.setScanFrom(records.get(records.size() - 1));
                         schemaQuery.setPage(schemaQuery.getPage()+1);
                         
@@ -277,9 +277,7 @@ public class DefaultDiscoveryService extends DefaultService implements Discovery
 
 	private String _getIdentifier(MetricSchemaRecord record) {
 		String identifier = new StringBuilder(record.getScope()).
-													append("$$").
 													append(record.getMetric()).
-													append("$$").
 													append(record.getNamespace()).
 													toString();
 		return identifier;
